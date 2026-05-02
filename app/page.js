@@ -1166,7 +1166,6 @@ export default function HomePage() {
               <p className="mt-2 text-xs text-ink/60 dark:text-mist/60">
                 هذا القسم يعتمد على قواعد لغوية واستدلالات مساعدة، وليس مخرجات مباشرة من النموذج.
               </p>
-<<<<<<< HEAD
               <div className="mt-4 space-y-4 text-sm text-ink/70 dark:text-mist/70">
                 {isSarcastic && (
                   <div className="grid gap-4 md:grid-cols-2">
@@ -1204,132 +1203,65 @@ export default function HomePage() {
                     </div>
                   </div>
                 )}
-=======
->>>>>>> c3217a26b7ee648c06eeb0f432dc2740ac427b57
 
-              <AnimatePresence mode="wait" initial={false}>
-                {showRuleBasedAnalysis ? (
-                  <motion.div
-                    key="sarcasm-analysis"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.28, ease: "easeOut" }}
-                    className="mt-4 space-y-4 text-sm text-ink/70 dark:text-mist/70"
-                  >
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="card-subtle p-4">
-                        <p className="text-xs text-ink/50 dark:text-mist/50">Sarcasm Type</p>
-                        <div className="mt-2 flex items-center gap-2">
-                          <TypeBadge type={ruleBased.sarcasmType} />
-                        </div>
-                      </div>
-                      <div className="card-subtle p-4">
-                        <p className="text-xs text-ink/50 dark:text-mist/50">Sarcasm Intensity (1-5)</p>
-                        <div className="mt-2 flex items-center gap-2">
-                          {[1, 2, 3, 4, 5].map((value) => (
-                            <span
-                              key={value}
-                              className={`h-2 w-8 rounded-full ${
-                                ruleBased.intensity >= value
-                                  ? "bg-sapphire"
-                                  : "bg-ink/10 dark:bg-white/10"
-                              }`}
-                            />
-                          ))}
-                          <span className="text-xs text-ink/60 dark:text-mist/60">
-                            {ruleBased.intensity}/5
-                          </span>
-                        </div>
-                        <motion.div
-                          initial={{ opacity: 0, y: 6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.4 }}
-                          className="badge badge-soft mt-2 inline-flex items-center gap-2 text-sapphire"
-                        >
-                          Confidence {formatConfidence(displayConfidence)} → Intensity {ruleBased.intensity}
-                        </motion.div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="font-semibold text-ink dark:text-mist">أسباب لغوية محتملة</p>
-                      <ul className="mt-2 space-y-2">
-                        {explanation.length ? (
-                          explanation.map((reason) => (
-                            <li key={reason} className="rounded-xl bg-ink/5 p-2 dark:bg-white/10">
-                              {reason}
-                            </li>
-                          ))
-                        ) : (
-                          <li className="rounded-xl bg-ink/5 p-2 dark:bg-white/10">لا توجد إشارات واضحة.</li>
-                        )}
-                      </ul>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-ink dark:text-mist">كلمات ساخرة مشتبه بها</p>
-                      <p>{suspiciousWords.length ? suspiciousWords.join("، ") : "لا يوجد"}</p>
-                    </div>
-                    <div className="card-subtle p-4 text-xs text-ink/60 dark:text-mist/60">
-                      <div className="grid gap-2 md:grid-cols-3">
-                        <span>emoji: {ruleBased.heuristics.emoji_detected ? "نعم" : "لا"}</span>
-                        <span>question: {ruleBased.heuristics.question_detected ? "نعم" : "لا"}</span>
-                        <span>comparison: {ruleBased.heuristics.comparison_detected ? "نعم" : "لا"}</span>
-                        <span>exaggeration: {ruleBased.heuristics.exaggeration_detected ? "نعم" : "لا"}</span>
-                        <span>contrast: {ruleBased.heuristics.contrast_detected ? "نعم" : "لا"}</span>
-                        <span>repeated: {ruleBased.heuristics.repeated_letters ? "نعم" : "لا"}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-ink dark:text-mist">تناقضات لغوية</p>
-                      <p>{contradictions.length ? contradictions.join("، ") : "لا يوجد"}</p>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-ink dark:text-mist">رموز تعبيرية</p>
-                      <p>{emojis.length ? emojis.join(" ") : "لا يوجد"}</p>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-ink dark:text-mist">تكرار حروف</p>
-                      <p>{repeats.length ? repeats.join("، ") : "لا يوجد"}</p>
-                    </div>
-                    <div className="card-subtle p-4 text-sm text-ink/70 dark:text-mist/70">
-                      <p className="font-semibold text-ink dark:text-mist">النص مع إبراز الكلمات</p>
-                      <p
-                        className="mt-2 leading-7"
-                        dangerouslySetInnerHTML={{ __html: highlightedText }}
-                      />
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="card-subtle p-4 text-sm text-ink/70 dark:text-mist/70">
-                        <p className="font-semibold text-ink dark:text-mist">قبل المعالجة</p>
-                        <p className="mt-2">{input || "-"}</p>
-                      </div>
-                      <div className="card-subtle p-4 text-sm text-ink/70 dark:text-mist/70">
-                        <p className="font-semibold text-ink dark:text-mist">بعد المعالجة</p>
-                        <p className="mt-2">{cleanedInput || "-"}</p>
-                      </div>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="no-sarcasm-state"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.28, ease: "easeOut" }}
-                    className="mt-4 flex min-h-[300px] items-center"
-                  >
-                    <div className="card-subtle w-full p-5 text-center">
-                      <p className="text-base font-semibold text-ink dark:text-mist">
-                        لا توجد مؤشرات سخرية كافية لإظهار التحليل اللغوي الإضافي.
-                      </p>
-                      <p className="mt-2 text-sm text-ink/60 dark:text-mist/60">
-                        يتم تفعيل التحليل اللغوي فقط عند اكتشاف سخرية بواسطة النموذج الرسمي.
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                <div>
+                  <p className="font-semibold text-ink dark:text-mist">أسباب لغوية محتملة</p>
+                  <ul className="mt-2 space-y-2">
+                    {explanation.length ? (
+                      explanation.map((reason) => (
+                        <li key={reason} className="rounded-xl bg-ink/5 p-2 dark:bg-white/10">
+                          {reason}
+                        </li>
+                      ))
+                    ) : (
+                      <li className="rounded-xl bg-ink/5 p-2 dark:bg-white/10">لا توجد إشارات واضحة.</li>
+                    )}
+                  </ul>
+                </div>
+                <div>
+                  <p className="font-semibold text-ink dark:text-mist">كلمات ساخرة مشتبه بها</p>
+                  <p>{suspiciousWords.length ? suspiciousWords.join("، ") : "لا يوجد"}</p>
+                </div>
+                <div className="card-subtle p-4 text-xs text-ink/60 dark:text-mist/60">
+                  <div className="grid gap-2 md:grid-cols-3">
+                    <span>emoji: {ruleBased.heuristics.emoji_detected ? "نعم" : "لا"}</span>
+                    <span>question: {ruleBased.heuristics.question_detected ? "نعم" : "لا"}</span>
+                    <span>comparison: {ruleBased.heuristics.comparison_detected ? "نعم" : "لا"}</span>
+                    <span>exaggeration: {ruleBased.heuristics.exaggeration_detected ? "نعم" : "لا"}</span>
+                    <span>contrast: {ruleBased.heuristics.contrast_detected ? "نعم" : "لا"}</span>
+                    <span>repeated: {ruleBased.heuristics.repeated_letters ? "نعم" : "لا"}</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="font-semibold text-ink dark:text-mist">تناقضات لغوية</p>
+                  <p>{contradictions.length ? contradictions.join("، ") : "لا يوجد"}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-ink dark:text-mist">رموز تعبيرية</p>
+                  <p>{emojis.length ? emojis.join(" ") : "لا يوجد"}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-ink dark:text-mist">تكرار حروف</p>
+                  <p>{repeats.length ? repeats.join("، ") : "لا يوجد"}</p>
+                </div>
+                <div className="card-subtle p-4 text-sm text-ink/70 dark:text-mist/70">
+                  <p className="font-semibold text-ink dark:text-mist">النص مع إبراز الكلمات</p>
+                  <p
+                    className="mt-2 leading-7"
+                    dangerouslySetInnerHTML={{ __html: highlightedText }}
+                  />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="card-subtle p-4 text-sm text-ink/70 dark:text-mist/70">
+                    <p className="font-semibold text-ink dark:text-mist">قبل المعالجة</p>
+                    <p className="mt-2">{input || "-"}</p>
+                  </div>
+                  <div className="card-subtle p-4 text-sm text-ink/70 dark:text-mist/70">
+                    <p className="font-semibold text-ink dark:text-mist">بعد المعالجة</p>
+                    <p className="mt-2">{cleanedInput || "-"}</p>
+                  </div>
+                </div>
+              </div>
             </motion.div>
           </section>
 
