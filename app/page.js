@@ -1386,21 +1386,24 @@ export default function HomePage() {
                     {isSmallScreen ? (
                       <div className="space-y-3 p-3">
                         {batchResults.length ? (
-                          batchResults.map((item, index) => (
-                            <div key={`${item.text}-${index}`} className="card-subtle p-3">
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                  <p className="font-semibold text-sm text-ink dark:text-mist">{item.text}</p>
-                                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                                    <span className={`inline-flex items-center rounded-full px-3 py-1 ${item.labelType === "sarcasm" ? "bg-coral/15 text-coral" : item.labelType === "not_sarcasm" ? "bg-sapphire/15 text-sapphire" : "bg-ink/10 text-ink dark:bg-white/10 dark:text-mist"}`}>{item.prediction || "-"}</span>
-                                    <span className="text-ink/60 dark:text-mist/60">{formatConfidence(item.confidence)}</span>
-                                    <span className="text-ink/60 dark:text-mist/60">{item.sarcasmType || "-"}</span>
-                                    <span className="text-ink/60 dark:text-mist/60">{item.intensity ?? "-"}</span>
+                          batchResults.map((item, index) => {
+                            const isSarcasticRow = item.labelType === "sarcasm" || (item.prediction || "").toLowerCase().includes("sarcas");
+                            return (
+                              <div key={`${item.text}-${index}`} className="card-subtle p-3">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <p className="font-semibold text-sm text-ink dark:text-mist">{item.text}</p>
+                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                                      <span className={`inline-flex items-center rounded-full px-3 py-1 ${item.labelType === "sarcasm" ? "bg-coral/15 text-coral" : item.labelType === "not_sarcasm" ? "bg-sapphire/15 text-sapphire" : "bg-ink/10 text-ink dark:bg-white/10 dark:text-mist"}`}>{item.prediction || "-"}</span>
+                                      <span className="text-ink/60 dark:text-mist/60">{formatConfidence(item.confidence)}</span>
+                                      <span className="text-ink/60 dark:text-mist/60">{isSarcasticRow ? (item.sarcasmType || "-") : "-"}</span>
+                                      <span className="text-ink/60 dark:text-mist/60">{isSarcasticRow ? (item.intensity ?? "-") : "-"}</span>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          ))
+                            );
+                          })
                         ) : (
                           <div className="px-4 py-6 text-center text-sm text-ink/60 dark:text-mist/60">لا توجد نتائج بعد.</div>
                         )}
@@ -1416,21 +1419,24 @@ export default function HomePage() {
                         </div>
                         <div className="divide-y divide-ink/10 dark:divide-white/10">
                           {batchResults.length ? (
-                            batchResults.map((item, index) => (
-                              <motion.div
-                                key={`${item.text}-${index}`}
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.3, delay: index * 0.02 }}
-                                className="table-row grid grid-cols-[2fr_0.8fr_0.6fr_0.8fr_0.5fr] gap-2 px-4 py-3 text-sm text-ink/80 hover:bg-white/80 dark:text-mist/80"
-                              >
-                                <span className="truncate">{item.text}</span>
-                                <span className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-xs ${item.labelType === "sarcasm" ? "bg-coral/15 text-coral" : item.labelType === "not_sarcasm" ? "bg-sapphire/15 text-sapphire" : "bg-ink/10 text-ink dark:bg-white/10 dark:text-mist"}`}>{item.prediction || "-"}</span>
-                                <span>{formatConfidence(item.confidence)}</span>
-                                <span className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-xs ${SARCASM_TYPE_STYLES[item.sarcasmType] || SARCASM_TYPE_STYLES.Unknown}`}>{item.sarcasmType || "-"}</span>
-                                <span>{item.intensity ?? "-"}</span>
-                              </motion.div>
-                            ))
+                            batchResults.map((item, index) => {
+                              const isSarcasticRow = item.labelType === "sarcasm" || (item.prediction || "").toLowerCase().includes("sarcas");
+                              return (
+                                <motion.div
+                                  key={`${item.text}-${index}`}
+                                  initial={{ opacity: 0, y: 8 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ duration: 0.3, delay: index * 0.02 }}
+                                  className="table-row grid grid-cols-[2fr_0.8fr_0.6fr_0.8fr_0.5fr] gap-2 px-4 py-3 text-sm text-ink/80 hover:bg-white/80 dark:text-mist/80"
+                                >
+                                  <span className="truncate">{item.text}</span>
+                                  <span className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-xs ${item.labelType === "sarcasm" ? "bg-coral/15 text-coral" : item.labelType === "not_sarcasm" ? "bg-sapphire/15 text-sapphire" : "bg-ink/10 text-ink dark:bg-white/10 dark:text-mist"}`}>{item.prediction || "-"}</span>
+                                  <span>{formatConfidence(item.confidence)}</span>
+                                  <span className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-xs ${isSarcasticRow ? (SARCASM_TYPE_STYLES[item.sarcasmType] || SARCASM_TYPE_STYLES.Unknown) : SARCASM_TYPE_STYLES.Unknown}`}>{isSarcasticRow ? (item.sarcasmType || "-") : "-"}</span>
+                                  <span>{isSarcasticRow ? (item.intensity ?? "-") : "-"}</span>
+                                </motion.div>
+                              );
+                            })
                           ) : (
                             <div className="px-4 py-6 text-center text-sm text-ink/60 dark:text-mist/60">لا توجد نتائج بعد.</div>
                           )}
