@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, useMotionValue, useSpring } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { analyzeSarcasm } from "../utils/sarcasmAnalysis";
 
 const SARCASTIC_EXAMPLES = [
@@ -221,15 +221,13 @@ function formatConfidence(score) {
   return `${score.toFixed(2)}%`;
 }
 
-function useDebouncedValue(value, delay) {
-  const [debounced, setDebounced] = useState(value);
+const ARABIC_ALLOWED_TEXT_REGEX = /^[\u0600-\u06FF\s0-9؟!،.؛:,'"“”()\-ـ]+$/;
+const EMOJI_STRIP_REGEX = /[\p{Extended_Pictographic}]/gu;
 
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-
-  return debounced;
+function isArabicOnlyText(text = "") {
+  const stripped = text.replace(EMOJI_STRIP_REGEX, "").trim();
+  if (!stripped) return false;
+  return ARABIC_ALLOWED_TEXT_REGEX.test(stripped);
 }
 
 function highlightText(text, highlights) {
@@ -306,6 +304,7 @@ function useHistory() {
 }
 
 export default function HomePage() {
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [input, setInput] = useState("");
   const [mode, setMode] = useState("single");
   const [batchInput, setBatchInput] = useState("");
@@ -323,12 +322,6 @@ export default function HomePage() {
   const requestRef = useRef(0);
   const resultsRef = useRef(null);
 
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  const glowX = useSpring(mouseX, { stiffness: 120, damping: 30 });
-  const glowY = useSpring(mouseY, { stiffness: 120, damping: 30 });
-
-  const debouncedInput = useDebouncedValue(input, 800);
   const normalizedInput = useMemo(() => normalizeArabic(input), [input]);
   const cleanedInput = useMemo(() => removeRepeated(normalizedInput), [normalizedInput]);
 
@@ -340,6 +333,7 @@ export default function HomePage() {
 
   const rawLabel = result?.predictionAr || result?.prediction || result?.label || "";
   const labelType = classifyLabel(rawLabel);
+  const showRuleBasedAnalysis = labelType === "sarcasm";
   const displayConfidence = typeof result?.confidence === "number" ? result.confidence : null;
   const rawOutput = useMemo(() => {
     const data = result?.result;
@@ -424,16 +418,6 @@ export default function HomePage() {
     return () => clearInterval(timer);
   }, [loading]);
 
-  useEffect(() => {
-    function handleMove(event) {
-      mouseX.set(event.clientX - 160);
-      mouseY.set(event.clientY - 160);
-    }
-
-    window.addEventListener("pointermove", handleMove);
-    return () => window.removeEventListener("pointermove", handleMove);
-  }, [mouseX, mouseY]);
-
   const runPrediction = useCallback(
     async (text, { silent } = {}) => {
       const requestId = requestRef.current + 1;
@@ -504,18 +488,7 @@ export default function HomePage() {
   );
 
   useEffect(() => {
-    if (!debouncedInput || debouncedInput.length < 4) return;
-    runPrediction(debouncedInput, { silent: true });
-  }, [debouncedInput, runPrediction]);
-
-  useEffect(() => {
     function handleKeyDown(event) {
-      if (event.key === "Enter" && !event.shiftKey) {
-        event.preventDefault();
-        if (input.trim()) {
-          runPrediction(input, { silent: false });
-        }
-      }
       if (event.ctrlKey && event.key.toLowerCase() === "l") {
         event.preventDefault();
         setInput("");
@@ -540,6 +513,10 @@ export default function HomePage() {
       event.preventDefault();
       if (!input.trim()) {
         setError("من فضلك اكتب نصا عربيا للتجربة.");
+        return;
+      }
+      if (!isArabicOnlyText(input)) {
+        setError("يرجى إدخال نص باللغة العربية فقط");
         return;
       }
       runPrediction(input, { silent: false });
@@ -624,6 +601,12 @@ export default function HomePage() {
       return;
     }
 
+    const invalidLine = lines.find((line) => !isArabicOnlyText(line));
+    if (invalidLine) {
+      setBatchError("يرجى إدخال نص باللغة العربية فقط");
+      return;
+    }
+
     setBatchLoading(true);
     setBatchResults([]);
     setBatchProgress({ done: 0, total: lines.length });
@@ -695,6 +678,19 @@ export default function HomePage() {
     runNext();
   }, [batchLines]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 640px)");
+    const update = () => setIsSmallScreen(mq.matches);
+    update();
+    mq.addEventListener?.("change", update);
+    window.addEventListener("resize", update);
+    return () => {
+      mq.removeEventListener?.("change", update);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
   return (
     <div className="dark">
       <main className="relative min-h-screen overflow-x-hidden">
@@ -704,12 +700,8 @@ export default function HomePage() {
           <span className="orb orb-violet" style={{ top: "12%", right: "8%" }} />
           <span className="orb orb-mint" style={{ bottom: "-10%", left: "40%" }} />
         </div>
-        <motion.div
-          className="mouse-glow"
-          style={{ x: glowX, y: glowY }}
-        />
-        <div className="mx-auto flex max-w-7xl flex-col gap-10 px-6 pb-16 pt-6">
-          <nav className="sticky top-4 z-40 rounded-full border border-white/20 bg-white/70 px-4 py-3 backdrop-blur-lg dark:border-white/10 dark:bg-ink/70">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-12 pt-4 sm:gap-10 sm:px-6 sm:pb-16 sm:pt-6">
+          <nav className="sticky top-3 z-40 rounded-full border border-white/20 bg-white/70 px-4 py-2.5 backdrop-blur-lg dark:border-white/10 dark:bg-ink/70 sm:top-4 sm:py-3">
             <div className="flex items-center justify-between gap-4">
               <span className="text-sm font-semibold text-ink/80 dark:text-mist/80">
                 Arabic Sarcasm Studio
@@ -722,14 +714,14 @@ export default function HomePage() {
             </div>
           </nav>
 
-          <header className="relative flex min-h-[38vh] flex-col justify-center gap-6">
-            <div className="flex flex-wrap items-center justify-between gap-6">
+          <header className="relative flex min-h-[18vh] flex-col justify-center gap-4 sm:min-h-[30vh] sm:gap-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 sm:gap-6">
               <div>
                 <motion.div
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6 }}
-                  className="inline-flex items-center gap-2 rounded-full border border-sapphire/30 bg-white/60 px-4 py-2 text-xs text-sapphire shadow-sm dark:border-sapphire/40 dark:bg-white/10"
+                  className="inline-flex items-center gap-2 rounded-full border border-sapphire/30 bg-white/60 px-3 py-1.5 text-xs text-sapphire shadow-sm dark:border-sapphire/40 dark:bg-white/10 sm:px-4 sm:py-2"
                 >
                   <span className="h-2 w-2 rounded-full bg-sapphire shadow-[0_0_12px_rgba(26,77,255,0.9)]" />
                   مختبر ذكاء اصطناعي حي
@@ -738,7 +730,7 @@ export default function HomePage() {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.7, delay: 0.1 }}
-                  className="text-hero mt-6"
+                  className="text-hero mt-4 sm:mt-6"
                 >
                   محلل السخرية العربية بالذكاء الاصطناعي
                 </motion.h1>
@@ -746,19 +738,19 @@ export default function HomePage() {
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.7, delay: 0.2 }}
-                  className="text-subtitle mt-5 max-w-2xl"
+                  className="text-subtitle mt-3 max-w-2xl sm:mt-5"
                 >
                   تجربة تحليل فورية بواجهة احترافية تجمع قوة الذكاء الاصطناعي مع دقة معالجة اللغة العربية.
                 </motion.p>
-                <div className="mt-8 flex flex-wrap gap-3">
+                <div className="mt-5 flex flex-wrap gap-3 sm:mt-8">
                   <button
                     type="button"
                     onClick={() => document.getElementById("ai-input")?.focus()}
-                    className="rounded-2xl bg-sapphire px-7 py-3 text-sm font-bold text-white shadow-[0_16px_40px_rgba(26,77,255,0.3)] transition hover:brightness-110"
+                    className="rounded-2xl bg-sapphire px-6 py-3 text-sm font-bold text-white shadow-[0_16px_40px_rgba(26,77,255,0.3)] transition hover:brightness-110 sm:px-7"
                   >
                     ابدأ التحليل الآن
                   </button>
-                  <span className="rounded-2xl border border-slate-200 bg-white/80 px-5 py-3 text-xs font-500 text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/10 dark:text-slate-300">
+                  <span className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-xs font-medium text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/10 dark:text-slate-300 sm:px-5">
                     منصة عربية بواجهة SaaS احترافية
                   </span>
                 </div>
@@ -766,12 +758,12 @@ export default function HomePage() {
             </div>
           </header>
 
-          <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr] sm:gap-6">
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="card lift-hover p-6"
+              className="card lift-hover p-4 sm:p-6"
             >
               <div className="flex items-center justify-between rounded-2xl border border-white/20 bg-white/60 p-2 text-xs text-ink/70 dark:border-white/10 dark:bg-white/10 dark:text-mist/70">
                 <button
@@ -804,16 +796,16 @@ export default function HomePage() {
                   <label className="text-sm font-semibold text-ink/70 dark:text-mist/70">
                     نص الاختبار
                   </label>
-                  <span className="text-xs text-ink/50 dark:text-mist/50">Enter للتحليل - Ctrl+L للمسح</span>
+                  <span className="text-xs text-ink/50 dark:text-mist/50">اضغط زر التحليل - Ctrl+L للمسح</span>
                 </div>
                 <div className="relative">
                   <textarea
                     id="ai-input"
                     value={input}
                     onChange={(event) => setInput(event.target.value)}
-                    rows={7}
+                    rows={6}
                     placeholder="اكتب جملة عربية هنا..."
-                    className="input-surface w-full resize-none p-4 text-lg text-ink dark:text-mist"
+                    className="input-surface w-full resize-none p-4 text-base text-ink dark:text-mist md:text-lg"
                   />
                   <div className="pointer-events-none absolute inset-0 rounded-2xl border border-sapphire/30 opacity-0 transition focus-within:opacity-100" />
                   <AnimatePresence>
@@ -838,7 +830,7 @@ export default function HomePage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="btn-primary flex items-center justify-center gap-2 px-6 py-3 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-70"
+                    className="btn-primary flex w-full items-center justify-center gap-2 px-6 py-3 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
                   >
                     {loading ? (
                       <span className="flex items-center gap-2">
@@ -852,14 +844,14 @@ export default function HomePage() {
                   <button
                     type="button"
                     onClick={handleCopy}
-                    className="btn-ghost px-4 py-3 text-sm text-ink dark:text-mist"
+                    className="btn-ghost w-full px-4 py-3 text-sm text-ink dark:text-mist sm:w-auto"
                   >
                     نسخ النتيجة
                   </button>
                   <button
                     type="button"
                     onClick={handleExport}
-                    className="btn-ghost px-4 py-3 text-sm text-ink dark:text-mist"
+                    className="btn-ghost w-full px-4 py-3 text-sm text-ink dark:text-mist sm:w-auto"
                   >
                     تصدير JSON
                   </button>
@@ -891,7 +883,7 @@ export default function HomePage() {
                 ) : null}
                 </form>
               ) : (
-                <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-4 sm:gap-5">
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-semibold text-ink/70 dark:text-mist/70">
                       نصوص متعددة (سطر لكل جملة)
@@ -904,7 +896,7 @@ export default function HomePage() {
                     <textarea
                       value={batchInput}
                       onChange={(event) => setBatchInput(event.target.value)}
-                      rows={9}
+                      rows={7}
                       placeholder="أدخل كل جملة في سطر منفصل..."
                       className="input-surface w-full resize-none p-4 text-base text-ink dark:text-mist"
                     />
@@ -919,7 +911,7 @@ export default function HomePage() {
                       type="button"
                       disabled={batchLoading}
                       onClick={() => runBatchAnalysis()}
-                      className="btn-primary flex items-center justify-center gap-2 px-6 py-3 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-70"
+                      className="btn-primary flex w-full items-center justify-center gap-2 px-6 py-3 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
                     >
                       {batchLoading ? "جاري التحليل" : "تحليل الدفعات"}
                     </button>
@@ -930,7 +922,7 @@ export default function HomePage() {
                         setBatchResults([]);
                         setBatchProgress({ done: 0, total: 0 });
                       }}
-                      className="btn-ghost px-4 py-3 text-sm text-ink dark:text-mist"
+                      className="btn-ghost w-full px-4 py-3 text-sm text-ink dark:text-mist sm:w-auto"
                     >
                       مسح الدفعة
                     </button>
@@ -1161,7 +1153,7 @@ export default function HomePage() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="card lift-hover p-6"
+              className="card lift-hover p-6 min-h-0 sm:min-h-[420px]"
             >
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-ink dark:text-mist">تحليل لغوي إضافي</h2>
@@ -1172,100 +1164,130 @@ export default function HomePage() {
               <p className="mt-2 text-xs text-ink/60 dark:text-mist/60">
                 هذا القسم يعتمد على قواعد لغوية واستدلالات مساعدة، وليس مخرجات مباشرة من النموذج.
               </p>
-              <div className="mt-4 space-y-4 text-sm text-ink/70 dark:text-mist/70">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="card-subtle p-4">
-                    <p className="text-xs text-ink/50 dark:text-mist/50">Sarcasm Type</p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <TypeBadge type={ruleBased.sarcasmType} />
-                    </div>
-                  </div>
-                  <div className="card-subtle p-4">
-                    <p className="text-xs text-ink/50 dark:text-mist/50">Sarcasm Intensity (1-5)</p>
-                    <div className="mt-2 flex items-center gap-2">
-                      {[1, 2, 3, 4, 5].map((value) => (
-                        <span
-                          key={value}
-                          className={`h-2 w-8 rounded-full ${
-                            ruleBased.intensity >= value
-                              ? "bg-sapphire"
-                              : "bg-ink/10 dark:bg-white/10"
-                          }`}
-                        />
-                      ))}
-                      <span className="text-xs text-ink/60 dark:text-mist/60">
-                        {ruleBased.intensity}/5
-                      </span>
-                    </div>
-                    <motion.div
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.4 }}
-                      className="badge badge-soft mt-2 inline-flex items-center gap-2 text-sapphire"
-                    >
-                      Confidence {formatConfidence(displayConfidence)} → Intensity {ruleBased.intensity}
-                    </motion.div>
-                  </div>
-                </div>
 
-                <div>
-                  <p className="font-semibold text-ink dark:text-mist">أسباب لغوية محتملة</p>
-                  <ul className="mt-2 space-y-2">
-                    {explanation.length ? (
-                      explanation.map((reason) => (
-                        <li key={reason} className="rounded-xl bg-ink/5 p-2 dark:bg-white/10">
-                          {reason}
-                        </li>
-                      ))
-                    ) : (
-                      <li className="rounded-xl bg-ink/5 p-2 dark:bg-white/10">لا توجد إشارات واضحة.</li>
-                    )}
-                  </ul>
-                </div>
-                <div>
-                  <p className="font-semibold text-ink dark:text-mist">كلمات ساخرة مشتبه بها</p>
-                  <p>{suspiciousWords.length ? suspiciousWords.join("، ") : "لا يوجد"}</p>
-                </div>
-                <div className="card-subtle p-4 text-xs text-ink/60 dark:text-mist/60">
-                  <div className="grid gap-2 md:grid-cols-3">
-                    <span>emoji: {ruleBased.heuristics.emoji_detected ? "نعم" : "لا"}</span>
-                    <span>question: {ruleBased.heuristics.question_detected ? "نعم" : "لا"}</span>
-                    <span>comparison: {ruleBased.heuristics.comparison_detected ? "نعم" : "لا"}</span>
-                    <span>exaggeration: {ruleBased.heuristics.exaggeration_detected ? "نعم" : "لا"}</span>
-                    <span>contrast: {ruleBased.heuristics.contrast_detected ? "نعم" : "لا"}</span>
-                    <span>repeated: {ruleBased.heuristics.repeated_letters ? "نعم" : "لا"}</span>
-                  </div>
-                </div>
-                <div>
-                  <p className="font-semibold text-ink dark:text-mist">تناقضات لغوية</p>
-                  <p>{contradictions.length ? contradictions.join("، ") : "لا يوجد"}</p>
-                </div>
-                <div>
-                  <p className="font-semibold text-ink dark:text-mist">رموز تعبيرية</p>
-                  <p>{emojis.length ? emojis.join(" ") : "لا يوجد"}</p>
-                </div>
-                <div>
-                  <p className="font-semibold text-ink dark:text-mist">تكرار حروف</p>
-                  <p>{repeats.length ? repeats.join("، ") : "لا يوجد"}</p>
-                </div>
-                <div className="card-subtle p-4 text-sm text-ink/70 dark:text-mist/70">
-                  <p className="font-semibold text-ink dark:text-mist">النص مع إبراز الكلمات</p>
-                  <p
-                    className="mt-2 leading-7"
-                    dangerouslySetInnerHTML={{ __html: highlightedText }}
-                  />
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="card-subtle p-4 text-sm text-ink/70 dark:text-mist/70">
-                    <p className="font-semibold text-ink dark:text-mist">قبل المعالجة</p>
-                    <p className="mt-2">{input || "-"}</p>
-                  </div>
-                  <div className="card-subtle p-4 text-sm text-ink/70 dark:text-mist/70">
-                    <p className="font-semibold text-ink dark:text-mist">بعد المعالجة</p>
-                    <p className="mt-2">{cleanedInput || "-"}</p>
-                  </div>
-                </div>
-              </div>
+              <AnimatePresence mode="wait" initial={false}>
+                {showRuleBasedAnalysis ? (
+                  <motion.div
+                    key="sarcasm-analysis"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.28, ease: "easeOut" }}
+                    className="mt-4 space-y-4 text-sm text-ink/70 dark:text-mist/70"
+                  >
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="card-subtle p-4">
+                        <p className="text-xs text-ink/50 dark:text-mist/50">Sarcasm Type</p>
+                        <div className="mt-2 flex items-center gap-2">
+                          <TypeBadge type={ruleBased.sarcasmType} />
+                        </div>
+                      </div>
+                      <div className="card-subtle p-4">
+                        <p className="text-xs text-ink/50 dark:text-mist/50">Sarcasm Intensity (1-5)</p>
+                        <div className="mt-2 flex items-center gap-2">
+                          {[1, 2, 3, 4, 5].map((value) => (
+                            <span
+                              key={value}
+                              className={`h-2 w-8 rounded-full ${
+                                ruleBased.intensity >= value
+                                  ? "bg-sapphire"
+                                  : "bg-ink/10 dark:bg-white/10"
+                              }`}
+                            />
+                          ))}
+                          <span className="text-xs text-ink/60 dark:text-mist/60">
+                            {ruleBased.intensity}/5
+                          </span>
+                        </div>
+                        <motion.div
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.4 }}
+                          className="badge badge-soft mt-2 inline-flex items-center gap-2 text-sapphire"
+                        >
+                          Confidence {formatConfidence(displayConfidence)} → Intensity {ruleBased.intensity}
+                        </motion.div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="font-semibold text-ink dark:text-mist">أسباب لغوية محتملة</p>
+                      <ul className="mt-2 space-y-2">
+                        {explanation.length ? (
+                          explanation.map((reason) => (
+                            <li key={reason} className="rounded-xl bg-ink/5 p-2 dark:bg-white/10">
+                              {reason}
+                            </li>
+                          ))
+                        ) : (
+                          <li className="rounded-xl bg-ink/5 p-2 dark:bg-white/10">لا توجد إشارات واضحة.</li>
+                        )}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-ink dark:text-mist">كلمات ساخرة مشتبه بها</p>
+                      <p>{suspiciousWords.length ? suspiciousWords.join("، ") : "لا يوجد"}</p>
+                    </div>
+                    <div className="card-subtle p-4 text-xs text-ink/60 dark:text-mist/60">
+                      <div className="grid gap-2 md:grid-cols-3">
+                        <span>emoji: {ruleBased.heuristics.emoji_detected ? "نعم" : "لا"}</span>
+                        <span>question: {ruleBased.heuristics.question_detected ? "نعم" : "لا"}</span>
+                        <span>comparison: {ruleBased.heuristics.comparison_detected ? "نعم" : "لا"}</span>
+                        <span>exaggeration: {ruleBased.heuristics.exaggeration_detected ? "نعم" : "لا"}</span>
+                        <span>contrast: {ruleBased.heuristics.contrast_detected ? "نعم" : "لا"}</span>
+                        <span>repeated: {ruleBased.heuristics.repeated_letters ? "نعم" : "لا"}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-ink dark:text-mist">تناقضات لغوية</p>
+                      <p>{contradictions.length ? contradictions.join("، ") : "لا يوجد"}</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-ink dark:text-mist">رموز تعبيرية</p>
+                      <p>{emojis.length ? emojis.join(" ") : "لا يوجد"}</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-ink dark:text-mist">تكرار حروف</p>
+                      <p>{repeats.length ? repeats.join("، ") : "لا يوجد"}</p>
+                    </div>
+                    <div className="card-subtle p-4 text-sm text-ink/70 dark:text-mist/70">
+                      <p className="font-semibold text-ink dark:text-mist">النص مع إبراز الكلمات</p>
+                      <p
+                        className="mt-2 leading-7"
+                        dangerouslySetInnerHTML={{ __html: highlightedText }}
+                      />
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="card-subtle p-4 text-sm text-ink/70 dark:text-mist/70">
+                        <p className="font-semibold text-ink dark:text-mist">قبل المعالجة</p>
+                        <p className="mt-2">{input || "-"}</p>
+                      </div>
+                      <div className="card-subtle p-4 text-sm text-ink/70 dark:text-mist/70">
+                        <p className="font-semibold text-ink dark:text-mist">بعد المعالجة</p>
+                        <p className="mt-2">{cleanedInput || "-"}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="no-sarcasm-state"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.28, ease: "easeOut" }}
+                    className="mt-4 flex min-h-[300px] items-center"
+                  >
+                    <div className="card-subtle w-full p-5 text-center">
+                      <p className="text-base font-semibold text-ink dark:text-mist">
+                        لا توجد مؤشرات سخرية كافية لإظهار التحليل اللغوي الإضافي.
+                      </p>
+                      <p className="mt-2 text-sm text-ink/60 dark:text-mist/60">
+                        يتم تفعيل التحليل اللغوي فقط عند اكتشاف سخرية بواسطة النموذج الرسمي.
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           </section>
 
@@ -1387,54 +1409,60 @@ export default function HomePage() {
 
                 <div className="mt-4 overflow-hidden rounded-2xl border border-ink/10 dark:border-white/10">
                   <div className="overflow-x-auto">
-                    <div className="min-w-[720px]">
-                      <div className="grid grid-cols-[2fr_0.8fr_0.6fr_0.8fr_0.5fr] gap-2 bg-ink/5 px-4 py-3 text-xs font-semibold text-ink/70 dark:bg-white/5 dark:text-mist/70">
-                    <span>الجملة</span>
-                    <span>التوقع</span>
-                    <span>الثقة</span>
-                    <span>النوع</span>
-                    <span>الشدة</span>
+                    {isSmallScreen ? (
+                      <div className="space-y-3 p-3">
+                        {batchResults.length ? (
+                          batchResults.map((item, index) => (
+                            <div key={`${item.text}-${index}`} className="card-subtle p-3">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <p className="font-semibold text-sm text-ink dark:text-mist">{item.text}</p>
+                                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                                    <span className={`inline-flex items-center rounded-full px-3 py-1 ${item.labelType === "sarcasm" ? "bg-coral/15 text-coral" : item.labelType === "not_sarcasm" ? "bg-sapphire/15 text-sapphire" : "bg-ink/10 text-ink dark:bg-white/10 dark:text-mist"}`}>{item.prediction || "-"}</span>
+                                    <span className="text-ink/60 dark:text-mist/60">{formatConfidence(item.confidence)}</span>
+                                    <span className="text-ink/60 dark:text-mist/60">{item.sarcasmType || "-"}</span>
+                                    <span className="text-ink/60 dark:text-mist/60">{item.intensity ?? "-"}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="px-4 py-6 text-center text-sm text-ink/60 dark:text-mist/60">لا توجد نتائج بعد.</div>
+                        )}
                       </div>
-                      <div className="divide-y divide-ink/10 dark:divide-white/10">
-                    {batchResults.length ? (
-                      batchResults.map((item, index) => (
-                        <motion.div
-                          key={`${item.text}-${index}`}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.3, delay: index * 0.02 }}
-                          className="table-row grid grid-cols-[2fr_0.8fr_0.6fr_0.8fr_0.5fr] gap-2 px-4 py-3 text-sm text-ink/80 hover:bg-white/80 dark:text-mist/80"
-                        >
-                          <span className="truncate">{item.text}</span>
-                          <span
-                            className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-xs ${
-                              item.labelType === "sarcasm"
-                                ? "bg-coral/15 text-coral"
-                                : item.labelType === "not_sarcasm"
-                                ? "bg-sapphire/15 text-sapphire"
-                                : "bg-ink/10 text-ink dark:bg-white/10 dark:text-mist"
-                            }`}
-                          >
-                            {item.prediction || "-"}
-                          </span>
-                          <span>{formatConfidence(item.confidence)}</span>
-                          <span
-                            className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-xs ${
-                              SARCASM_TYPE_STYLES[item.sarcasmType] || SARCASM_TYPE_STYLES.Unknown
-                            }`}
-                          >
-                            {item.sarcasmType || "-"}
-                          </span>
-                          <span>{item.intensity ?? "-"}</span>
-                        </motion.div>
-                      ))
                     ) : (
-                      <div className="px-4 py-6 text-center text-sm text-ink/60 dark:text-mist/60">
-                        لا توجد نتائج بعد.
+                      <div className="min-w-full">
+                        <div className="grid grid-cols-[2fr_0.8fr_0.6fr_0.8fr_0.5fr] gap-2 bg-ink/5 px-4 py-3 text-xs font-semibold text-ink/70 dark:bg-white/5 dark:text-mist/70">
+                          <span>الجملة</span>
+                          <span>التوقع</span>
+                          <span>الثقة</span>
+                          <span>النوع</span>
+                          <span>الشدة</span>
+                        </div>
+                        <div className="divide-y divide-ink/10 dark:divide-white/10">
+                          {batchResults.length ? (
+                            batchResults.map((item, index) => (
+                              <motion.div
+                                key={`${item.text}-${index}`}
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.3, delay: index * 0.02 }}
+                                className="table-row grid grid-cols-[2fr_0.8fr_0.6fr_0.8fr_0.5fr] gap-2 px-4 py-3 text-sm text-ink/80 hover:bg-white/80 dark:text-mist/80"
+                              >
+                                <span className="truncate">{item.text}</span>
+                                <span className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-xs ${item.labelType === "sarcasm" ? "bg-coral/15 text-coral" : item.labelType === "not_sarcasm" ? "bg-sapphire/15 text-sapphire" : "bg-ink/10 text-ink dark:bg-white/10 dark:text-mist"}`}>{item.prediction || "-"}</span>
+                                <span>{formatConfidence(item.confidence)}</span>
+                                <span className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-xs ${SARCASM_TYPE_STYLES[item.sarcasmType] || SARCASM_TYPE_STYLES.Unknown}`}>{item.sarcasmType || "-"}</span>
+                                <span>{item.intensity ?? "-"}</span>
+                              </motion.div>
+                            ))
+                          ) : (
+                            <div className="px-4 py-6 text-center text-sm text-ink/60 dark:text-mist/60">لا توجد نتائج بعد.</div>
+                          )}
+                        </div>
                       </div>
                     )}
-                      </div>
-                    </div>
                   </div>
                 </div>
               </motion.div>
