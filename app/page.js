@@ -616,6 +616,8 @@ export default function HomePage() {
     return analyzeSarcasm(input, rawLabel, displayConfidence);
   }, [input, rawLabel, displayConfidence]);
 
+  const isSarcastic = labelType === "sarcasm" || (ruleBased?.prediction || "").toLowerCase().includes("sarcas");
+
   const runBatchAnalysis = useCallback(async () => {
     setBatchError("");
     const lines = batchLines.slice(0, 50);
@@ -1173,40 +1175,42 @@ export default function HomePage() {
                 هذا القسم يعتمد على قواعد لغوية واستدلالات مساعدة، وليس مخرجات مباشرة من النموذج.
               </p>
               <div className="mt-4 space-y-4 text-sm text-ink/70 dark:text-mist/70">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="card-subtle p-4">
-                    <p className="text-xs text-ink/50 dark:text-mist/50">Sarcasm Type</p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <TypeBadge type={ruleBased.sarcasmType} />
+                {isSarcastic && (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="card-subtle p-4">
+                      <p className="text-xs text-ink/50 dark:text-mist/50">Sarcasm Type</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <TypeBadge type={ruleBased.sarcasmType} />
+                      </div>
+                    </div>
+                    <div className="card-subtle p-4">
+                      <p className="text-xs text-ink/50 dark:text-mist/50">Sarcasm Intensity (1-5)</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        {[1, 2, 3, 4, 5].map((value) => (
+                          <span
+                            key={value}
+                            className={`h-2 w-8 rounded-full ${
+                              ruleBased.intensity >= value
+                                ? "bg-sapphire"
+                                : "bg-ink/10 dark:bg-white/10"
+                            }`}
+                          />
+                        ))}
+                        <span className="text-xs text-ink/60 dark:text-mist/60">
+                          {ruleBased.intensity}/5
+                        </span>
+                      </div>
+                      <motion.div
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4 }}
+                        className="badge badge-soft mt-2 inline-flex items-center gap-2 text-sapphire"
+                      >
+                        Confidence {formatConfidence(displayConfidence)} → Intensity {ruleBased.intensity}
+                      </motion.div>
                     </div>
                   </div>
-                  <div className="card-subtle p-4">
-                    <p className="text-xs text-ink/50 dark:text-mist/50">Sarcasm Intensity (1-5)</p>
-                    <div className="mt-2 flex items-center gap-2">
-                      {[1, 2, 3, 4, 5].map((value) => (
-                        <span
-                          key={value}
-                          className={`h-2 w-8 rounded-full ${
-                            ruleBased.intensity >= value
-                              ? "bg-sapphire"
-                              : "bg-ink/10 dark:bg-white/10"
-                          }`}
-                        />
-                      ))}
-                      <span className="text-xs text-ink/60 dark:text-mist/60">
-                        {ruleBased.intensity}/5
-                      </span>
-                    </div>
-                    <motion.div
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.4 }}
-                      className="badge badge-soft mt-2 inline-flex items-center gap-2 text-sapphire"
-                    >
-                      Confidence {formatConfidence(displayConfidence)} → Intensity {ruleBased.intensity}
-                    </motion.div>
-                  </div>
-                </div>
+                )}
 
                 <div>
                   <p className="font-semibold text-ink dark:text-mist">أسباب لغوية محتملة</p>
